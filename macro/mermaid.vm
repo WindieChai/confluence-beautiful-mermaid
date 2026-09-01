@@ -1,0 +1,20 @@
+## Mermaid diagram macro powered by beautiful-mermaid
+##
+## Admin setup (Confluence Server / Data Center):
+##   1. Management → User Macros → Create User Macro
+##   2. Macro name: mermaid
+##   3. Macro body: Has body
+##   4. Body processing: Unrendered
+##   5. Output: HTML
+##   6. Paste this template
+##
+## Replace INIT_JS_URL with your internal static server URL, e.g.:
+##   https://static.example.com/confluence-beautiful-mermaid/mermaid-init.js
+
+## @param theme:title=Theme|type=enum|enumValues=light,dark|default=light|desc=Diagram color theme
+
+<div class="bm-mermaid-diagram" data-state="pending" data-theme="$paramtheme">
+  <pre class="bm-source" style="display:none">$body</pre>
+  <div class="bm-render-target" style="padding:8px 0;color:#666;font-size:13px;">Rendering diagram...</div>
+</div>
+<script src="INIT_JS_URL"></script>

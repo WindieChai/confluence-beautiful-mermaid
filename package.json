@@ -1,0 +1,27 @@
+{
+  "name": "confluence-beautiful-mermaid",
+  "version": "1.0.0",
+  "description": "Confluence user macro for rendering Mermaid diagrams with beautiful-mermaid",
+  "license": "MIT",
+  "private": false,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "beautiful-mermaid": "^1.1.3",
+    "esbuild": "^0.25.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/windie/confluence-beautiful-mermaid.git"
+  },
+  "keywords": [
+    "confluence",
+    "mermaid",
+    "beautiful-mermaid",
+    "user-macro",
+    "atlassian"
+  ]
+}
