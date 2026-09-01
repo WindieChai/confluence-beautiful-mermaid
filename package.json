@@ -15,7 +15,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/windie/confluence-beautiful-mermaid.git"
+    "url": "git+https://github.com/YOUR_USERNAME/confluence-beautiful-mermaid.git"
   },
   "keywords": [
     "confluence",
