@@ -16,6 +16,6 @@
 ## @param theme:title=Theme|type=enum|enumValues=light,dark|default=light|desc=Diagram color theme
 
 <div class="beautiful-mermaid-confluence" data-state="pending" data-theme="$paramtheme">
-  <pre class="bm-source" style="display:none">$body</pre>
-  <div class="bm-render-target" style="padding:8px 0;color:#666;font-size:13px;">Rendering diagram...</div>
+  <div class="bm-source" hidden style="display:none">$body</div>
+  <div class="bm-render-target">Rendering diagram...</div>
 </div>

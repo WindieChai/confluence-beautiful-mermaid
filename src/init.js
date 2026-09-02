@@ -8,6 +8,8 @@
  * Requires window.beautifulMermaidBundleUrl (full URL of the bundle).
  * Do not put <script> tags in the User Macro — they split the editor.
  */
+import { injectStyles, enhanceDiagram } from './viewer.js';
+
 (function (global) {
   'use strict';
 
@@ -34,11 +36,53 @@
     return !!global.BeautifulMermaid;
   }
 
+  var BLOCK_TAGS = {
+    P: 1, DIV: 1, LI: 1, TR: 1, PRE: 1, BLOCKQUOTE: 1,
+    H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1, TABLE: 1, UL: 1, OL: 1,
+  };
+
+  // Confluence stores macro bodies as HTML (<p>, <br>). textContent would
+  // smash those into one line; <p> inside <pre> also breaks the node.
+  function htmlToText(root) {
+    var out = '';
+    function walk(node, isRoot) {
+      if (node.nodeType === 3) {
+        var parentTag = node.parentNode && node.parentNode.tagName;
+        if (parentTag !== 'PRE' && parentTag !== 'TEXTAREA' && /^\s*$/.test(node.nodeValue)) {
+          return;
+        }
+        out += node.nodeValue;
+        return;
+      }
+      if (node.nodeType !== 1) return;
+      var tag = node.tagName;
+      if (tag === 'SCRIPT' || tag === 'STYLE') return;
+      if (tag === 'BR') {
+        out += '\n';
+        return;
+      }
+      var i;
+      for (i = 0; i < node.childNodes.length; i++) walk(node.childNodes[i], false);
+      if (!isRoot && BLOCK_TAGS[tag]) out += '\n';
+    }
+    walk(root, true);
+    return out.replace(/\u00a0/g, ' ').replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  }
+
+  // mermaid.live paste includes %%{init:...}%%; beautiful-mermaid rejects it.
+  function stripMermaidDirectives(code) {
+    return String(code).replace(/%%\{[\s\S]*?\}%%/g, '');
+  }
+
   function readSource(el) {
     var source = el.querySelector('.bm-source');
     if (!source) return '';
-    var raw = source.tagName === 'TEXTAREA' ? source.value : (source.textContent || '');
+    var raw = source.tagName === 'TEXTAREA' ? source.value : htmlToText(source);
     return String(raw).replace(/^\s+|\s+$/g, '');
+  }
+
+  function sourceForRender(el) {
+    return stripMermaidDirectives(readSource(el)).replace(/^\s+|\s+$/g, '');
   }
 
   // Custom HTML / leftover template nodes never go through Velocity, so the
@@ -108,23 +152,58 @@
     return NS.bootstrapping;
   }
 
+  function revealSourceOnError(el) {
+    var raw = readSource(el);
+    if (!raw || isPlaceholderSource(raw)) return;
+    var code = stripMermaidDirectives(raw).replace(/^\s+|\s+$/g, '') || raw;
+    var source = el.querySelector('.bm-source');
+    if (!source) return;
+    source.textContent = code;
+    source.removeAttribute('hidden');
+    source.style.removeProperty('display');
+  }
+
+  function showError(el, message) {
+    if (isPlaceholderSource(readSource(el))) {
+      el.dataset.state = 'skipped';
+      var skipTarget = el.querySelector('.bm-render-target');
+      if (skipTarget) skipTarget.innerHTML = '';
+      el.style.display = 'none';
+      return;
+    }
+
+    var target = el.querySelector('.bm-render-target');
+    if (target) {
+      target.innerHTML = '<pre class="bm-error">' + message + '</pre>';
+    }
+    revealSourceOnError(el);
+    el.dataset.state = 'error';
+  }
+
   function renderNode(el, render) {
     if (el.dataset.state !== 'pending') return;
 
     el.dataset.state = 'rendering';
 
     var target = el.querySelector('.bm-render-target');
-    var code = readSource(el);
+    var raw = readSource(el);
 
-    if (!target || !code) {
+    if (!target || !raw) {
+      revealSourceOnError(el);
       el.dataset.state = 'error';
       return;
     }
 
-    if (isPlaceholderSource(code)) {
+    if (isPlaceholderSource(raw)) {
       el.dataset.state = 'skipped';
       target.innerHTML = '';
       el.style.display = 'none';
+      return;
+    }
+
+    var code = sourceForRender(el);
+    if (!code) {
+      showError(el, 'Mermaid syntax error: empty diagram');
       return;
     }
 
@@ -141,16 +220,15 @@
       if (svgEl) {
         svgEl.setAttribute('role', 'img');
         svgEl.setAttribute('aria-label', 'Mermaid diagram');
+        enhanceDiagram(el);
       }
 
       el.dataset.state = 'rendered';
     } catch (err) {
-      target.innerHTML =
-        '<pre class="bm-error" style="color:#c62828;white-space:pre-wrap;margin:0;padding:12px;background:#ffebee;border-radius:4px;">' +
-        'Mermaid syntax error: ' +
-        (err && err.message ? err.message : String(err)) +
-        '</pre>';
-      el.dataset.state = 'error';
+      showError(
+        el,
+        'Mermaid syntax error: ' + (err && err.message ? err.message : String(err))
+      );
     }
   }
 
@@ -175,15 +253,11 @@
             CONTAINER + '[data-state="pending"], ' + CONTAINER + '[data-state="rendering"]'
           )
           .forEach(function (el) {
-            var target = el.querySelector('.bm-render-target');
-            if (target) {
-              target.innerHTML =
-                '<pre class="bm-error" style="color:#c62828;white-space:pre-wrap;margin:0;padding:12px;background:#ffebee;border-radius:4px;">' +
-                'Failed to load renderer: ' +
-                (err && err.message ? err.message : String(err)) +
-                '</pre>';
-            }
-            el.dataset.state = 'error';
+            showError(
+              el,
+              'Failed to load renderer: ' +
+                (err && err.message ? err.message : String(err))
+            );
           });
       });
   }
@@ -200,6 +274,8 @@
 
   function bootstrap() {
     if (!hasContainer()) return;
+
+    injectStyles();
 
     if (NS.bootstrapped) {
       scheduleScan();

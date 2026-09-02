@@ -29,6 +29,8 @@ await esbuild.build({
 await esbuild.build({
   ...shared,
   entryPoints: [join(root, 'src/init.js')],
+  bundle: true,
+  format: 'iife',
   outfile: join(dist, 'mermaid-init.js'),
 });
 
