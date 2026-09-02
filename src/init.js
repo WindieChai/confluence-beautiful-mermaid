@@ -1,23 +1,15 @@
 /**
  * Confluence Beautiful Mermaid — init script
  *
- * Loaded once per page (idempotent). Dynamically loads the beautiful-mermaid
- * bundle, then scans for unrendered `.bm-mermaid-diagram` nodes.
+ * Loaded globally via Custom HTML. Only injects beautiful-mermaid.bundle.js
+ * when the page contains `.beautiful-mermaid-confluence` and the bundle is
+ * not already mounted.
  *
- * Configure BUNDLE_URL before hosting on your internal static server.
+ * Requires window.beautifulMermaidBundleUrl (full URL of the bundle).
+ * Do not put <script> tags in the User Macro — they split the editor.
  */
 (function (global) {
   'use strict';
-
-  var VERSION = '1.0.0';
-
-  // Replace with your internal static server base URL (no trailing slash).
-  // Example: https://static.example.com/confluence-beautiful-mermaid
-  var BASE_URL = global.__bmConfluenceBaseUrl || '';
-
-  var BUNDLE_URL = BASE_URL
-    ? BASE_URL + '/beautiful-mermaid.bundle.js?v=' + VERSION
-    : '';
 
   var NS = global.__bmConfluence = global.__bmConfluence || {
     bootstrapped: false,
@@ -25,22 +17,47 @@
     scanScheduled: false,
   };
 
-  function getBundleUrl() {
-    if (BUNDLE_URL) return BUNDLE_URL;
+  var CONTAINER = '.beautiful-mermaid-confluence';
 
-    // Fallback: resolve relative to this script's location.
-    var current = document.currentScript;
-    if (current && current.src) {
-      return current.src.replace(/mermaid-init\.js.*$/, 'beautiful-mermaid.bundle.js?v=' + VERSION);
-    }
+  function contentRoot() {
+    return document.getElementById('main-content')
+      || document.querySelector('.wiki-content')
+      || document.getElementById('content')
+      || document;
+  }
+
+  function hasContainer() {
+    return !!contentRoot().querySelector(CONTAINER);
+  }
+
+  function mermaidReady() {
+    return !!global.BeautifulMermaid;
+  }
+
+  function readSource(el) {
+    var source = el.querySelector('.bm-source');
+    if (!source) return '';
+    var raw = source.tagName === 'TEXTAREA' ? source.value : (source.textContent || '');
+    return String(raw).replace(/^\s+|\s+$/g, '');
+  }
+
+  // Custom HTML / leftover template nodes never go through Velocity, so the
+  // source is the literal "$body". Ignore those; do not feed them to Mermaid.
+  function isPlaceholderSource(code) {
+    return /^\$\{?body\}?$/i.test(code);
+  }
+
+  function getBundleUrl() {
+    var url = global.beautifulMermaidBundleUrl;
+    if (url) return url;
 
     throw new Error(
-      'confluence-beautiful-mermaid: set window.__bmConfluenceBaseUrl or host init.js next to the bundle'
+      'confluence-beautiful-mermaid: set window.beautifulMermaidBundleUrl in Custom HTML'
     );
   }
 
   function loadBundle() {
-    if (global.BeautifulMermaid) {
+    if (mermaidReady()) {
       return Promise.resolve(global.BeautifulMermaid);
     }
 
@@ -48,12 +65,17 @@
       return NS.bootstrapping;
     }
 
-    var bundleUrl = getBundleUrl();
+    var bundleUrl;
+    try {
+      bundleUrl = getBundleUrl();
+    } catch (err) {
+      return Promise.reject(err);
+    }
 
     NS.bootstrapping = new Promise(function (resolve, reject) {
       var existing = document.querySelector('script[data-bm-bundle]');
       if (existing) {
-        if (global.BeautifulMermaid) {
+        if (mermaidReady()) {
           resolve(global.BeautifulMermaid);
           return;
         }
@@ -71,7 +93,7 @@
       script.async = true;
       script.setAttribute('data-bm-bundle', '1');
       script.onload = function () {
-        if (!global.BeautifulMermaid) {
+        if (!mermaidReady()) {
           reject(new Error('beautiful-mermaid bundle loaded but BeautifulMermaid is undefined'));
           return;
         }
@@ -80,7 +102,7 @@
       script.onerror = function () {
         reject(new Error('Failed to load beautiful-mermaid bundle from ' + bundleUrl));
       };
-      document.head.appendChild(script);
+      (document.body || document.head).appendChild(script);
     });
 
     return NS.bootstrapping;
@@ -92,10 +114,17 @@
     el.dataset.state = 'rendering';
 
     var target = el.querySelector('.bm-render-target');
-    var source = el.querySelector('.bm-source');
+    var code = readSource(el);
 
-    if (!source || !target) {
+    if (!target || !code) {
       el.dataset.state = 'error';
+      return;
+    }
+
+    if (isPlaceholderSource(code)) {
+      el.dataset.state = 'skipped';
+      target.innerHTML = '';
+      el.style.display = 'none';
       return;
     }
 
@@ -105,7 +134,7 @@
       : { bg: '#FFFFFF', fg: '#172B4D', transparent: true };
 
     try {
-      var svg = render(source.textContent, colors);
+      var svg = render(code, colors);
       target.innerHTML = svg;
 
       var svgEl = target.querySelector('svg');
@@ -128,7 +157,9 @@
   function scanAndRender() {
     NS.scanScheduled = false;
 
-    var pending = document.querySelectorAll('.bm-mermaid-diagram[data-state="pending"]');
+    if (!hasContainer()) return;
+
+    var pending = contentRoot().querySelectorAll(CONTAINER + '[data-state="pending"]');
     if (!pending.length) return;
 
     loadBundle()
@@ -139,9 +170,9 @@
         });
       })
       .catch(function (err) {
-        document
+        contentRoot()
           .querySelectorAll(
-            '.bm-mermaid-diagram[data-state="pending"], .bm-mermaid-diagram[data-state="rendering"]'
+            CONTAINER + '[data-state="pending"], ' + CONTAINER + '[data-state="rendering"]'
           )
           .forEach(function (el) {
             var target = el.querySelector('.bm-render-target');
@@ -168,6 +199,8 @@
   }
 
   function bootstrap() {
+    if (!hasContainer()) return;
+
     if (NS.bootstrapped) {
       scheduleScan();
       return;
