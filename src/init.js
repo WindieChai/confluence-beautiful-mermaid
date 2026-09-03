@@ -17,19 +17,14 @@ import { injectStyles, enhanceDiagram } from './viewer.js';
     bootstrapped: false,
     bootstrapping: null,
     scanScheduled: false,
+    watching: false,
+    observedDocs: [],
   };
 
   var CONTAINER = '.beautiful-mermaid-confluence';
 
-  function contentRoot() {
-    return document.getElementById('main-content')
-      || document.querySelector('.wiki-content')
-      || document.getElementById('content')
-      || document;
-  }
-
-  function hasContainer() {
-    return !!contentRoot().querySelector(CONTAINER);
+  function pendingSelector() {
+    return CONTAINER + '[data-state="pending"]';
   }
 
   function mermaidReady() {
@@ -213,13 +208,76 @@ import { injectStyles, enhanceDiagram } from './viewer.js';
     }
   }
 
+  function sameOriginDoc(iframe) {
+    try {
+      var doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+      if (!doc) return null;
+      void doc.documentElement;
+      return doc;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function collectDocs(rootDoc, out, seen) {
+    if (!rootDoc) return;
+    var i;
+    for (i = 0; i < seen.length; i++) {
+      if (seen[i] === rootDoc) return;
+    }
+    seen.push(rootDoc);
+    out.push(rootDoc);
+    var iframes;
+    try {
+      iframes = rootDoc.querySelectorAll('iframe');
+    } catch (err) {
+      return;
+    }
+    for (i = 0; i < iframes.length; i++) {
+      collectDocs(sameOriginDoc(iframes[i]), out, seen);
+    }
+  }
+
+  function allDocs() {
+    var out = [];
+    collectDocs(document, out, []);
+    return out;
+  }
+
+  function queryAllDocs(selector) {
+    var docs = allDocs();
+    var nodes = [];
+    var i;
+    var j;
+    var found;
+    for (i = 0; i < docs.length; i++) {
+      try {
+        found = docs[i].querySelectorAll(selector);
+      } catch (err) {
+        continue;
+      }
+      for (j = 0; j < found.length; j++) nodes.push(found[j]);
+    }
+    return nodes;
+  }
+
   function scanAndRender() {
     NS.scanScheduled = false;
 
-    if (!hasContainer()) return;
-
-    var pending = contentRoot().querySelectorAll(CONTAINER + '[data-state="pending"]');
+    var pending = queryAllDocs(pendingSelector());
     if (!pending.length) return;
+
+    var seenDocs = [];
+    pending.forEach(function (el) {
+      var doc = el.ownerDocument;
+      if (!doc) return;
+      var i;
+      for (i = 0; i < seenDocs.length; i++) {
+        if (seenDocs[i] === doc) return;
+      }
+      seenDocs.push(doc);
+      injectStyles(doc);
+    });
 
     loadBundle()
       .then(function (BM) {
@@ -229,17 +287,15 @@ import { injectStyles, enhanceDiagram } from './viewer.js';
         });
       })
       .catch(function (err) {
-        contentRoot()
-          .querySelectorAll(
-            CONTAINER + '[data-state="pending"], ' + CONTAINER + '[data-state="rendering"]'
-          )
-          .forEach(function (el) {
+        queryAllDocs(pendingSelector() + ', ' + CONTAINER + '[data-state="rendering"]').forEach(
+          function (el) {
             showError(
               el,
               'Failed to load renderer: ' +
                 (err && err.message ? err.message : String(err))
             );
-          });
+          }
+        );
       });
   }
 
@@ -253,16 +309,91 @@ import { injectStyles, enhanceDiagram } from './viewer.js';
     raf(scanAndRender);
   }
 
-  function bootstrap() {
-    if (!hasContainer()) return;
+  function observeDoc(doc) {
+    if (!doc || !global.MutationObserver) return;
+    var list = NS.observedDocs;
+    var i;
+    for (i = 0; i < list.length; i++) {
+      if (list[i] === doc) return;
+    }
+    var root = doc.documentElement || doc;
+    if (!root) return;
+    list.push(doc);
+    new MutationObserver(onMutations).observe(root, {
+      childList: true,
+      subtree: true,
+    });
+  }
 
-    injectStyles();
+  function isEditorIframe(iframe) {
+    var id = iframe.id || '';
+    if (id === 'wysiwygTextarea_ifr') return true;
+    var cls = typeof iframe.className === 'string' ? iframe.className : '';
+    return cls.indexOf('tox-edit-area') !== -1;
+  }
 
-    if (NS.bootstrapped) {
+  function watchIframe(iframe) {
+    if (!iframe || iframe.getAttribute('data-bm-watched') === '1') return;
+    if (isEditorIframe(iframe)) return;
+    iframe.setAttribute('data-bm-watched', '1');
+    var bind = function () {
+      var doc = sameOriginDoc(iframe);
+      if (!doc) return;
+      observeDoc(doc);
+      var nested = doc.querySelectorAll('iframe');
+      var i;
+      for (i = 0; i < nested.length; i++) watchIframe(nested[i]);
       scheduleScan();
+    };
+    iframe.addEventListener('load', bind);
+    bind();
+  }
+
+  function watchIframesIn(node) {
+    if (!node || node.nodeType !== 1) return;
+    if (node.tagName === 'IFRAME') {
+      watchIframe(node);
       return;
     }
-    NS.bootstrapped = true;
+    if (!node.querySelectorAll) return;
+    var iframes = node.querySelectorAll('iframe');
+    var i;
+    for (i = 0; i < iframes.length; i++) watchIframe(iframes[i]);
+  }
+
+  function addedNodeNeedsScan(node) {
+    if (!node || node.nodeType !== 1) return false;
+    watchIframesIn(node);
+    if (node.classList && node.classList.contains('beautiful-mermaid-confluence')) return true;
+    return !!(node.querySelector && node.querySelector(CONTAINER));
+  }
+
+  function onMutations(records) {
+    var i;
+    var j;
+    var added;
+    var scanned = false;
+    for (i = 0; i < records.length; i++) {
+      added = records[i].addedNodes;
+      for (j = 0; j < added.length; j++) {
+        if (addedNodeNeedsScan(added[j])) scanned = true;
+      }
+    }
+    if (scanned) scheduleScan();
+  }
+
+  function startWatch() {
+    if (NS.watching) return;
+    NS.watching = true;
+    observeDoc(document);
+    watchIframesIn(document.documentElement);
+  }
+
+  function bootstrap() {
+    if (!NS.bootstrapped) {
+      NS.bootstrapped = true;
+      startWatch();
+    }
     scheduleScan();
   }
 

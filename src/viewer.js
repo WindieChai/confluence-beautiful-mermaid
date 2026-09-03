@@ -77,12 +77,14 @@ var CSS_TEXT =
   '.bm-lightbox-canvas{display:inline-block;line-height:0}' +
   '.bm-lightbox-canvas svg{display:block;max-width:none;height:auto}';
 
-export function injectStyles() {
-  if (document.getElementById(STYLE_ID)) return;
-  var style = document.createElement('style');
+export function injectStyles(doc) {
+  doc = doc || document;
+  if (!doc || !doc.createElement) return;
+  if (doc.getElementById(STYLE_ID)) return;
+  var style = doc.createElement('style');
   style.id = STYLE_ID;
   style.textContent = CSS_TEXT;
-  (document.head || document.documentElement).appendChild(style);
+  (doc.head || doc.documentElement).appendChild(style);
 }
 
 function getSvgNaturalSize(svgEl) {
@@ -143,9 +145,11 @@ export function enhanceDiagram(el) {
   var svg = el.querySelector('.bm-render-target svg');
   if (!svg) return;
 
+  var doc = el.ownerDocument || document;
+  injectStyles(doc);
   applyChrome(el, svg);
 
-  var btn = document.createElement('button');
+  var btn = doc.createElement('button');
   btn.type = 'button';
   btn.className = 'bm-fs-btn';
   btn.setAttribute('aria-label', 'View diagram fullscreen');
@@ -162,8 +166,12 @@ export function enhanceDiagram(el) {
 function openLightbox(el, sourceSvg, trigger) {
   closeLightbox();
 
+  var doc = (el && el.ownerDocument) || document;
+  var win = doc.defaultView || window;
+  injectStyles(doc);
+
   var nat = getSvgNaturalSize(sourceSvg);
-  var overlay = document.createElement('div');
+  var overlay = doc.createElement('div');
   overlay.className = 'bm-lightbox';
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
@@ -308,19 +316,19 @@ function openLightbox(el, sourceSvg, trigger) {
   stage.addEventListener('pointerup', onPointerUp);
   stage.addEventListener('pointercancel', onPointerUp);
   stage.addEventListener('dblclick', onDblClick);
-  window.addEventListener('keydown', onKeyDown);
-  window.addEventListener('resize', onResize);
+  win.addEventListener('keydown', onKeyDown);
+  win.addEventListener('resize', onResize);
 
-  document.documentElement.classList.add('bm-lightbox-open');
-  document.body.appendChild(overlay);
+  doc.documentElement.classList.add('bm-lightbox-open');
+  (doc.body || doc.documentElement).appendChild(overlay);
 
   lightbox = {
     overlay: overlay,
     trigger: trigger,
     cleanup: function () {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('resize', onResize);
-      document.documentElement.classList.remove('bm-lightbox-open');
+      win.removeEventListener('keydown', onKeyDown);
+      win.removeEventListener('resize', onResize);
+      doc.documentElement.classList.remove('bm-lightbox-open');
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
       if (trigger && trigger.focus) trigger.focus();
     },
