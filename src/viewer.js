@@ -19,11 +19,11 @@ var CSS_TEXT =
     'font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;' +
     'background:#F4F5F7;border-radius:4px;color:#172B4D' +
   '}' +
-  '.beautiful-mermaid-confluence[data-theme="dark"][data-state="error"] .bm-source{' +
+  '.beautiful-mermaid-confluence[data-chrome="dark"][data-state="error"] .bm-source{' +
     'background:#27272A;color:#FAFAFA' +
   '}' +
   '.beautiful-mermaid-confluence .bm-render-target{padding:8px 0;color:#666;font-size:13px}' +
-  '.beautiful-mermaid-confluence[data-theme="dark"] .bm-render-target{color:#a1a1aa}' +
+  '.beautiful-mermaid-confluence[data-chrome="dark"] .bm-render-target{color:#a1a1aa}' +
   '.beautiful-mermaid-confluence .bm-render-target svg{max-width:100%;height:auto;display:block}' +
   '.beautiful-mermaid-confluence .bm-error{' +
     'color:#c62828;white-space:pre-wrap;margin:0;padding:12px;' +
@@ -37,20 +37,20 @@ var CSS_TEXT =
     'box-shadow:0 1px 4px rgba(9,30,66,.25);cursor:pointer;' +
     'opacity:0;transition:opacity .15s ease,background .15s ease' +
   '}' +
-  '.beautiful-mermaid-confluence[data-theme="dark"] .bm-fs-btn{' +
+  '.beautiful-mermaid-confluence[data-chrome="dark"] .bm-fs-btn{' +
     'background:rgba(24,24,27,.92);color:#FAFAFA' +
   '}' +
   '.beautiful-mermaid-confluence:hover .bm-fs-btn,' +
   '.beautiful-mermaid-confluence:focus-within .bm-fs-btn{opacity:1}' +
   '@media (hover:none){.beautiful-mermaid-confluence .bm-fs-btn{opacity:1}}' +
   '.beautiful-mermaid-confluence .bm-fs-btn:hover{background:#fff}' +
-  '.beautiful-mermaid-confluence[data-theme="dark"] .bm-fs-btn:hover{background:#27272A}' +
+  '.beautiful-mermaid-confluence[data-chrome="dark"] .bm-fs-btn:hover{background:#27272A}' +
   '.beautiful-mermaid-confluence .bm-fs-btn:focus,' +
   '.beautiful-mermaid-confluence .bm-fs-btn:focus-visible{outline:none;box-shadow:none;opacity:1}' +
   'html.bm-lightbox-open,html.bm-lightbox-open body{overflow:hidden!important}' +
   '.bm-lightbox{' +
     'position:fixed;top:0;right:0;bottom:0;left:0;z-index:' + Z_INDEX + ';' +
-    'background:#091E42' +
+    'background:#fff' +
   '}' +
   '.bm-lightbox-bar{' +
     'position:absolute;top:0;left:0;right:0;z-index:2;' +
@@ -75,9 +75,7 @@ var CSS_TEXT =
   '}' +
   '.bm-lightbox-stage.bm-panning{cursor:grabbing}' +
   '.bm-lightbox-canvas{display:inline-block;line-height:0}' +
-  '.bm-lightbox-canvas svg{display:block;max-width:none;height:auto}' +
-  '.bm-lightbox[data-theme="light"] .bm-lightbox-canvas{background:#fff}' +
-  '.bm-lightbox[data-theme="dark"] .bm-lightbox-canvas{background:#18181B}';
+  '.bm-lightbox-canvas svg{display:block;max-width:none;height:auto}';
 
 export function injectStyles() {
   if (document.getElementById(STYLE_ID)) return;
@@ -101,6 +99,37 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function readCssVar(el, name) {
+  if (!el) return '';
+  if (el.style && el.style.getPropertyValue) {
+    var direct = el.style.getPropertyValue(name);
+    if (direct) return String(direct).replace(/^\s+|\s+$/g, '');
+  }
+  var raw = el.getAttribute && el.getAttribute('style');
+  if (!raw) return '';
+  var escaped = name.replace(/-/g, '\\-');
+  var match = raw.match(new RegExp('(?:^|;)\\s*' + escaped + '\\s*:\\s*([^;]+)'));
+  return match ? match[1].replace(/^\s+|\s+$/g, '') : '';
+}
+
+function isDarkHex(color) {
+  var hex = String(color || '').replace(/\s/g, '');
+  var m = hex.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!m) return false;
+  var h = m[1];
+  if (h.length === 3) {
+    h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+  }
+  var r = parseInt(h.slice(0, 2), 16);
+  var g = parseInt(h.slice(2, 4), 16);
+  var b = parseInt(h.slice(4, 6), 16);
+  return 0.299 * r + 0.587 * g + 0.114 * b < 140;
+}
+
+function applyChrome(el, svg) {
+  el.dataset.chrome = isDarkHex(readCssVar(svg, '--bg')) ? 'dark' : 'light';
+}
+
 function expandIcon() {
   return (
     '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">' +
@@ -113,6 +142,8 @@ export function enhanceDiagram(el) {
   if (!el || el.querySelector('.bm-fs-btn')) return;
   var svg = el.querySelector('.bm-render-target svg');
   if (!svg) return;
+
+  applyChrome(el, svg);
 
   var btn = document.createElement('button');
   btn.type = 'button';
@@ -132,10 +163,8 @@ function openLightbox(el, sourceSvg, trigger) {
   closeLightbox();
 
   var nat = getSvgNaturalSize(sourceSvg);
-  var theme = el.dataset.theme || 'light';
   var overlay = document.createElement('div');
   overlay.className = 'bm-lightbox';
-  overlay.dataset.theme = theme;
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
   overlay.setAttribute('aria-label', 'Fullscreen diagram');
@@ -158,6 +187,9 @@ function openLightbox(el, sourceSvg, trigger) {
   clone.removeAttribute('width');
   clone.removeAttribute('height');
   clone.style.maxWidth = 'none';
+  var themeBg = readCssVar(sourceSvg, '--bg') || '#fff';
+  overlay.style.background = themeBg;
+  canvas.style.background = themeBg;
   canvas.appendChild(clone);
 
   var state = {

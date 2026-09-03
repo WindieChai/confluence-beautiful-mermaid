@@ -11,7 +11,7 @@ No Java plugin required. Authors insert a macro; admins host the static JS files
 - **Lazy loading** — `beautiful-mermaid.init.js` loads `beautiful-mermaid.bundle.js` once per page
 - **Idempotent** — global bootstrap + per-diagram `data-state` (`pending` → `rendering` → `rendered`)
 - **Synchronous SVG rendering** — fast, no flash
-- **Light / dark theme** — macro parameter `theme=light|dark`
+- **Themes** — official [beautiful-mermaid](https://github.com/lukilabs/beautiful-mermaid) palettes via `THEMES['name']`. Macro default is `theme=default` (`DEFAULTS`).
 
 ### Supported diagram types
 
@@ -83,7 +83,7 @@ Set the bundle URL **before** loading init. Append `?v=` yourself if you need ca
 3. Paste Mermaid source code
 4. Save
 
-Wiki markup:
+Wiki markup uses `theme=default` (library `DEFAULTS`) unless you pick a palette:
 
 ```text
 {beautiful-mermaid-confluence}
@@ -94,11 +94,11 @@ graph TD
 {beautiful-mermaid-confluence}
 ```
 
-Dark theme:
+Named palettes, for example `tokyo-night`:
 
 ```text
-{beautiful-mermaid-confluence:theme=dark}
-graph LR
+{beautiful-mermaid-confluence:theme=tokyo-night}
+graph TD
   A --> B
 {beautiful-mermaid-confluence}
 ```

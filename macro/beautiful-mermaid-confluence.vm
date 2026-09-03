@@ -13,7 +13,7 @@
 ##        window.beautifulMermaidBundleUrl = '.../beautiful-mermaid.bundle.js'
 ##        <script src=".../beautiful-mermaid.init.js"></script>
 
-## @param theme:title=Theme|type=enum|enumValues=light,dark|default=light|desc=Diagram color theme
+## @param theme:title=Theme|type=enum|enumValues=default,zinc-light,zinc-dark,tokyo-night,tokyo-night-storm,tokyo-night-light,catppuccin-mocha,catppuccin-latte,nord,nord-light,dracula,github-light,github-dark,solarized-light,solarized-dark,one-dark|default=default|desc=beautiful-mermaid theme (default uses library DEFAULTS)
 
 <div class="beautiful-mermaid-confluence" data-state="pending" data-theme="$paramtheme">
   <pre class="bm-source" hidden style="display:none">$body</pre>

@@ -41,6 +41,23 @@ import { injectStyles, enhanceDiagram } from './viewer.js';
     return String(code).replace(/%%\{[\s\S]*?\}%%/g, '');
   }
 
+  function copyPalette(palette) {
+    var colors = {};
+    var key;
+    for (key in palette) {
+      if (Object.prototype.hasOwnProperty.call(palette, key)) colors[key] = palette[key];
+    }
+    return colors;
+  }
+
+  function colorsForTheme(BM, rawName) {
+    var name = String(rawName || 'default').replace(/^\s+|\s+$/g, '');
+    var themes = (BM && BM.THEMES) || {};
+    var defaults = (BM && BM.DEFAULTS) || { bg: '#FFFFFF', fg: '#27272A' };
+    if (!name || name === 'default') return copyPalette(defaults);
+    return copyPalette(themes[name] || defaults);
+  }
+
   function readSource(el) {
     var source = el.querySelector('.bm-source');
     if (!source) return '';
@@ -174,10 +191,7 @@ import { injectStyles, enhanceDiagram } from './viewer.js';
       return;
     }
 
-    var theme = el.dataset.theme || 'light';
-    var colors = theme === 'dark'
-      ? { bg: '#18181B', fg: '#FAFAFA', transparent: true }
-      : { bg: '#FFFFFF', fg: '#172B4D', transparent: true };
+    var colors = colorsForTheme(global.BeautifulMermaid, el.dataset.theme);
 
     try {
       var svg = render(code, colors);
