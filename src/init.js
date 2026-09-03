@@ -36,39 +36,6 @@ import { injectStyles, enhanceDiagram } from './viewer.js';
     return !!global.BeautifulMermaid;
   }
 
-  var BLOCK_TAGS = {
-    P: 1, DIV: 1, LI: 1, TR: 1, PRE: 1, BLOCKQUOTE: 1,
-    H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1, TABLE: 1, UL: 1, OL: 1,
-  };
-
-  // Confluence stores macro bodies as HTML (<p>, <br>). textContent would
-  // smash those into one line; <p> inside <pre> also breaks the node.
-  function htmlToText(root) {
-    var out = '';
-    function walk(node, isRoot) {
-      if (node.nodeType === 3) {
-        var parentTag = node.parentNode && node.parentNode.tagName;
-        if (parentTag !== 'PRE' && parentTag !== 'TEXTAREA' && /^\s*$/.test(node.nodeValue)) {
-          return;
-        }
-        out += node.nodeValue;
-        return;
-      }
-      if (node.nodeType !== 1) return;
-      var tag = node.tagName;
-      if (tag === 'SCRIPT' || tag === 'STYLE') return;
-      if (tag === 'BR') {
-        out += '\n';
-        return;
-      }
-      var i;
-      for (i = 0; i < node.childNodes.length; i++) walk(node.childNodes[i], false);
-      if (!isRoot && BLOCK_TAGS[tag]) out += '\n';
-    }
-    walk(root, true);
-    return out.replace(/\u00a0/g, ' ').replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
-  }
-
   // mermaid.live paste includes %%{init:...}%%; beautiful-mermaid rejects it.
   function stripMermaidDirectives(code) {
     return String(code).replace(/%%\{[\s\S]*?\}%%/g, '');
@@ -77,7 +44,7 @@ import { injectStyles, enhanceDiagram } from './viewer.js';
   function readSource(el) {
     var source = el.querySelector('.bm-source');
     if (!source) return '';
-    var raw = source.tagName === 'TEXTAREA' ? source.value : htmlToText(source);
+    var raw = source.tagName === 'TEXTAREA' ? source.value : (source.textContent || '');
     return String(raw).replace(/^\s+|\s+$/g, '');
   }
 

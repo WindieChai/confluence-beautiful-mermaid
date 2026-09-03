@@ -22,7 +22,6 @@ var CSS_TEXT =
   '.beautiful-mermaid-confluence[data-theme="dark"][data-state="error"] .bm-source{' +
     'background:#27272A;color:#FAFAFA' +
   '}' +
-  '.beautiful-mermaid-confluence[data-state="error"] .bm-source p{margin:0}' +
   '.beautiful-mermaid-confluence .bm-render-target{padding:8px 0;color:#666;font-size:13px}' +
   '.beautiful-mermaid-confluence[data-theme="dark"] .bm-render-target{color:#a1a1aa}' +
   '.beautiful-mermaid-confluence .bm-render-target svg{max-width:100%;height:auto;display:block}' +

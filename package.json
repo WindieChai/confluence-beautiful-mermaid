@@ -1,6 +1,6 @@
 {
   "name": "confluence-beautiful-mermaid",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Confluence user macro for rendering Mermaid diagrams with beautiful-mermaid",
   "license": "MIT",
   "private": false,
