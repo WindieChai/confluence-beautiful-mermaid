@@ -31,11 +31,11 @@ await esbuild.build({
   entryPoints: [join(root, 'src/init.js')],
   bundle: true,
   format: 'iife',
-  outfile: join(dist, 'mermaid-init.js'),
+  outfile: join(dist, 'beautiful-mermaid.init.js'),
 });
 
-await copyFile(join(root, 'src', 'icon.png'), join(dist, 'icon.png'));
+await copyFile(join(root, 'src', 'icon.png'), join(dist, 'beautiful-mermaid.icon.png'));
 
 console.log('Built dist/beautiful-mermaid.bundle.js');
-console.log('Built dist/mermaid-init.js');
-console.log('Copied dist/icon.png');
+console.log('Built dist/beautiful-mermaid.init.js');
+console.log('Copied dist/beautiful-mermaid.icon.png');

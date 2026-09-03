@@ -3,7 +3,7 @@
 ## Admin setup (Confluence Server / Data Center):
 ##   1. Management → User Macros → Create User Macro
 ##   2. Macro name: beautiful-mermaid-confluence
-##   3. Icon URL: hosted dist/icon.png (same static server as the JS)
+##   3. Icon URL: hosted dist/beautiful-mermaid.icon.png (same static server as the JS)
 ##   4. Documentation URL: https://github.com/WindieChai/confluence-beautiful-mermaid
 ##   5. Macro body: Has body
 ##   6. Body processing: Unrendered
@@ -11,7 +11,7 @@
 ##   8. Paste this template into the User Macro only (not Custom HTML)
 ##   9. Custom HTML → At end of BODY must be ONLY the two script lines:
 ##        window.beautifulMermaidBundleUrl = '.../beautiful-mermaid.bundle.js'
-##        <script src=".../mermaid-init.js"></script>
+##        <script src=".../beautiful-mermaid.init.js"></script>
 
 ## @param theme:title=Theme|type=enum|enumValues=light,dark|default=light|desc=Diagram color theme
 

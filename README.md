@@ -2,13 +2,13 @@
 
 Render [Mermaid](https://mermaid.js.org/) diagrams in **Atlassian Confluence Server / Data Center** using a lightweight **User Macro** and [beautiful-mermaid](https://github.com/lukilabs/beautiful-mermaid).
 
-No Java plugin required. Authors insert a macro; admins host the static JS files plus the macro icon, and load `mermaid-init.js` once via **Custom HTML**.
+No Java plugin required. Authors insert a macro; admins host the static JS files plus the macro icon, and load `beautiful-mermaid.init.js` once via **Custom HTML**.
 
 ## Features
 
 - **User Macro only** — no Atlassian Plugin SDK or JAR deployment
 - **No `<script>` in the macro** — Confluence would split the editor if the macro output contains script tags
-- **Lazy loading** — `mermaid-init.js` loads `beautiful-mermaid.bundle.js` once per page
+- **Lazy loading** — `beautiful-mermaid.init.js` loads `beautiful-mermaid.bundle.js` once per page
 - **Idempotent** — global bootstrap + per-diagram `data-state` (`pending` → `rendering` → `rendered`)
 - **Synchronous SVG rendering** — fast, no flash
 - **Light / dark theme** — macro parameter `theme=light|dark`
@@ -32,16 +32,16 @@ Output:
 
 ```
 dist/beautiful-mermaid.bundle.js
-dist/mermaid-init.js
-dist/icon.png
+dist/beautiful-mermaid.init.js
+dist/beautiful-mermaid.icon.png
 ```
 
 Upload all three files to your internal static server, e.g.:
 
 ```
 https://static.example.com/confluence-beautiful-mermaid/beautiful-mermaid.bundle.js
-https://static.example.com/confluence-beautiful-mermaid/mermaid-init.js
-https://static.example.com/confluence-beautiful-mermaid/icon.png
+https://static.example.com/confluence-beautiful-mermaid/beautiful-mermaid.init.js
+https://static.example.com/confluence-beautiful-mermaid/beautiful-mermaid.icon.png
 ```
 
 Ensure `.js` files are served with `Content-Type: application/javascript`.
@@ -54,7 +54,7 @@ Ensure `.js` files are served with `Content-Type: application/javascript`.
 |---------|-------|
 | Macro name | `beautiful-mermaid-confluence` |
 | Macro title | Mermaid Diagram |
-| Icon URL | hosted `dist/icon.png`, e.g. `https://static.example.com/confluence-beautiful-mermaid/icon.png` |
+| Icon URL | hosted `dist/beautiful-mermaid.icon.png`, e.g. `https://static.example.com/confluence-beautiful-mermaid/beautiful-mermaid.icon.png` |
 | Documentation URL | `https://github.com/WindieChai/confluence-beautiful-mermaid` |
 | Macro body | Has body |
 | Body processing | **Unrendered** |
@@ -69,7 +69,7 @@ Ensure `.js` files are served with `Content-Type: application/javascript`.
 
 ```html
 <script>window.beautifulMermaidBundleUrl = 'https://static.example.com/confluence-beautiful-mermaid/beautiful-mermaid.bundle.js';</script>
-<script src="https://static.example.com/confluence-beautiful-mermaid/mermaid-init.js"></script>
+<script src="https://static.example.com/confluence-beautiful-mermaid/beautiful-mermaid.init.js"></script>
 ```
 
 Do **not** paste the user-macro template into Custom HTML. Custom HTML is not Velocity: `$body` would appear literally and the renderer would try to parse it as Mermaid.
@@ -112,9 +112,9 @@ User Macro (no <script> tags)
 
 Custom HTML (end of BODY)
   ├── <script>window.beautifulMermaidBundleUrl = '…/beautiful-mermaid.bundle.js'</script>
-  └── <script src="mermaid-init.js">
+  └── <script src="beautiful-mermaid.init.js">
 
-mermaid-init.js (idempotent)
+beautiful-mermaid.init.js (idempotent)
   ├── no-op unless `.beautiful-mermaid-confluence` exists
   ├── skip loading bundle if BeautifulMermaid is already on window
   ├── load beautiful-mermaid.bundle.js once (Promise cache)
