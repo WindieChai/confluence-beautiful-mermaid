@@ -53,15 +53,93 @@ import { injectStyles, enhanceDiagram } from './viewer.js';
     return copyPalette(themes[name] || defaults);
   }
 
+  // $body is inserted unescaped. <br> becomes a real HTML tag, and
+  // textContent drops it without inserting a newline (source is also hidden,
+  // so innerText is empty). Walk the DOM instead.
+  function htmlSourceToText(node) {
+    if (!node) return '';
+    var type = node.nodeType;
+    if (type === 3 || type === 4) {
+      return String(node.nodeValue || '').replace(/\u00a0/g, ' ');
+    }
+    if (type !== 1) return '';
+    var tag = node.tagName;
+    if (tag === 'BR') return '\n';
+    if (tag === 'SCRIPT' || tag === 'STYLE') return '';
+    var parts = [];
+    var child;
+    for (child = node.firstChild; child; child = child.nextSibling) {
+      parts.push(htmlSourceToText(child));
+    }
+    var text = parts.join('');
+    if (
+      tag === 'P' || tag === 'DIV' || tag === 'LI' || tag === 'TR' ||
+      tag === 'H1' || tag === 'H2' || tag === 'H3' || tag === 'H4' ||
+      tag === 'H5' || tag === 'H6'
+    ) {
+      return text.replace(/\s+$/, '') + '\n';
+    }
+    return text;
+  }
+
+  // beautiful-mermaid splits the diagram on newlines before parsing nodes.
+  // A label like A["foo\nbar"] becomes two broken lines, so the rest of the
+  // quoted text is dropped. Fold those newlines back into <br>, which the
+  // renderer already understands.
+  function foldLabelNewlines(code) {
+    var out = '';
+    var inQuote = false;
+    var square = 0;
+    var round = 0;
+    var curly = 0;
+    var i;
+    var c;
+
+    function inLabel() {
+      return inQuote || square > 0 || round > 0 || curly > 0;
+    }
+
+    for (i = 0; i < code.length; i++) {
+      c = code.charAt(i);
+      if (c === '"') {
+        inQuote = !inQuote;
+        out += c;
+        continue;
+      }
+      if (!inQuote) {
+        if (c === '[') square++;
+        else if (c === ']' && square) square--;
+        else if (c === '(') round++;
+        else if (c === ')' && round) round--;
+        else if (c === '{') curly++;
+        else if (c === '}' && curly) curly--;
+      }
+      if (inLabel() && (c === '\n' || c === '\r')) {
+        if (c === '\r' && code.charAt(i + 1) === '\n') i++;
+        out += '<br>';
+        while (i + 1 < code.length && (code.charAt(i + 1) === ' ' || code.charAt(i + 1) === '\t')) {
+          i++;
+        }
+        continue;
+      }
+      out += c;
+    }
+    return out;
+  }
+
   function readSource(el) {
     var source = el.querySelector('.bm-source');
     if (!source) return '';
-    var raw = source.tagName === 'TEXTAREA' ? source.value : (source.textContent || '');
+    var raw = source.tagName === 'TEXTAREA' ? source.value : htmlSourceToText(source);
     return String(raw).replace(/^\s+|\s+$/g, '');
   }
 
+  function normalizeSource(code) {
+    return foldLabelNewlines(stripMermaidDirectives(code)).replace(/^\s+|\s+$/g, '');
+  }
+
   function sourceForRender(el) {
-    return stripMermaidDirectives(readSource(el)).replace(/^\s+|\s+$/g, '');
+    return normalizeSource(readSource(el));
   }
 
   // Custom HTML / leftover template nodes never go through Velocity, so the
@@ -134,7 +212,7 @@ import { injectStyles, enhanceDiagram } from './viewer.js';
   function revealSourceOnError(el) {
     var raw = readSource(el);
     if (!raw || isPlaceholderSource(raw)) return;
-    var code = stripMermaidDirectives(raw).replace(/^\s+|\s+$/g, '') || raw;
+    var code = normalizeSource(raw) || raw;
     var source = el.querySelector('.bm-source');
     if (!source) return;
     source.textContent = code;
