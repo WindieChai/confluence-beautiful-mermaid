@@ -82,21 +82,24 @@ import { injectStyles, enhanceDiagram } from './viewer.js';
     return text;
   }
 
-  // beautiful-mermaid splits the diagram on newlines before parsing nodes.
-  // A label like A["foo\nbar"] becomes two broken lines, so the rest of the
-  // quoted text is dropped. Fold those newlines back into <br>, which the
-  // renderer already understands.
+  // beautiful-mermaid splits source on newlines, then parses one statement
+  // per line. Label text may contain a real newline (or a Confluence <br>
+  // that htmlSourceToText restored as a newline). Fold those back to <br>,
+  // which the renderer already treats as a line break inside a label.
+  //
+  // Same rule for every diagram type: only quote / [] / () wrap label text.
+  // {} always wraps statements (class / ER / state / namespace) and also
+  // appears in ER arrows (o{, |{), so those newlines stay as separators.
   function foldLabelNewlines(code) {
     var out = '';
     var inQuote = false;
     var square = 0;
     var round = 0;
-    var curly = 0;
     var i;
     var c;
 
     function inLabel() {
-      return inQuote || square > 0 || round > 0 || curly > 0;
+      return inQuote || square > 0 || round > 0;
     }
 
     for (i = 0; i < code.length; i++) {
@@ -111,8 +114,6 @@ import { injectStyles, enhanceDiagram } from './viewer.js';
         else if (c === ']' && square) square--;
         else if (c === '(') round++;
         else if (c === ')' && round) round--;
-        else if (c === '{') curly++;
-        else if (c === '}' && curly) curly--;
       }
       if (inLabel() && (c === '\n' || c === '\r')) {
         if (c === '\r' && code.charAt(i + 1) === '\n') i++;
